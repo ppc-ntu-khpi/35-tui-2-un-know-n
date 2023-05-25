@@ -1,10 +1,14 @@
-package com.mybank.tui;
-
+import com.mybank.data.DataSource;
 import com.mybank.domain.Bank;
 import com.mybank.domain.CheckingAccount;
 import com.mybank.domain.Customer;
 import com.mybank.domain.SavingsAccount;
+import com.mybank.reporting.CustomerReport;
+
+import java.io.File;
+import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URLDecoder;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -13,12 +17,6 @@ import org.jline.reader.impl.completer.*;
 import org.jline.utils.*;
 import org.fusesource.jansi.*;
 
-/**
- * Sample application to show how jLine can be used.
- *
- * @author sandarenu
- *
- */
 /**
  * Console client for 'Banking' example
  *
@@ -39,7 +37,7 @@ public class CLIdemo {
     private String[] commandsList;
 
     public void init() {
-        commandsList = new String[]{"help", "customers", "customer", "exit"};
+        commandsList = new String[]{"help", "customers", "customer", "report", "exit"};
     }
 
     public void run() {
@@ -60,48 +58,11 @@ public class CLIdemo {
             if ("help".equals(line)) {
                 printHelp();
             } else if ("customers".equals(line)) {
-                AttributedStringBuilder a = new AttributedStringBuilder()
-                        .append("\nThis is all of your ")
-                        .append("customers", AttributedStyle.BOLD.foreground(AttributedStyle.RED))
-                        .append(":");
-
-                System.out.println(a.toAnsi());
-                if (Bank.getNumberOfCustomers() > 0) {
-                    System.out.println("\nLast name\tFirst Name\tBalance");
-                    System.out.println("---------------------------------------");
-                    for (int i = 0; i < Bank.getNumberOfCustomers(); i++) {
-                        System.out.println(Bank.getCustomer(i).getLastName() + "\t\t" + Bank.getCustomer(i).getFirstName() + "\t\t$" + Bank.getCustomer(i).getAccount(0).getBalance());
-                    }
-                } else {
-                    System.out.println(ANSI_RED+"Your bank has no customers!"+ANSI_RESET);
-                }
-
-            } else if (line.indexOf("customer") != -1) {
-                try {
-                    int custNo = 0;
-                    if (line.length() > 8) {
-                        String strNum = line.split(" ")[1];
-                        if (strNum != null) {
-                            custNo = Integer.parseInt(strNum);
-                        }
-                    }                    
-                    Customer cust = Bank.getCustomer(custNo);
-                    String accType = cust.getAccount(0) instanceof CheckingAccount ? "Checkinh" : "Savings";
-                    
-                    AttributedStringBuilder a = new AttributedStringBuilder()
-                            .append("\nThis is detailed information about customer #")
-                            .append(Integer.toString(custNo), AttributedStyle.BOLD.foreground(AttributedStyle.RED))
-                            .append("!");
-
-                    System.out.println(a.toAnsi());
-                    
-                    System.out.println("\nLast name\tFirst Name\tAccount Type\tBalance");
-                    System.out.println("-------------------------------------------------------");
-                    System.out.println(cust.getLastName() + "\t\t" + cust.getFirstName() + "\t\t" + accType + "\t$" + cust.getAccount(0).getBalance());
-                } catch (Exception e) {
-                    System.out
-                        .println(ANSI_RED + "ERROR! Wrong customer number!" + ANSI_RESET);
-                }
+                printCustomers();
+            } else if (line.startsWith("customer")) {
+                printCustomerDetails(line);
+            } else if ("report".equals(line)) {
+                generateReport();
             } else if ("exit".equals(line)) {
                 System.out.println("Exiting application");
                 return;
@@ -122,10 +83,62 @@ public class CLIdemo {
 
     private void printHelp() {
         System.out.println("help\t\t\t- Show help");
-        System.out.println("customer\t\t- Show list of customers");
+        System.out.println("customers\t\t- Show list of customers");
         System.out.println("customer \'index\'\t- Show customer details");
+        System.out.println("report\t\t\t- Generate customer report");
         System.out.println("exit\t\t\t- Exit the app");
 
+    }
+
+    private void printCustomers() {
+        AttributedStringBuilder a = new AttributedStringBuilder()
+                .append("\nThis is all of your ")
+                .append("customers", AttributedStyle.BOLD.foreground(AttributedStyle.RED))
+                .append(":");
+
+        System.out.println(a.toAnsi());
+        if (Bank.getNumberOfCustomers() > 0) {
+            System.out.println("\nLast name\tFirst Name\tBalance");
+            System.out.println("---------------------------------------");
+            for (int i = 0; i < Bank.getNumberOfCustomers(); i++) {
+                System.out.println(Bank.getCustomer(i).getLastName() + "\t\t" + Bank.getCustomer(i).getFirstName() + "\t\t$" + Bank.getCustomer(i).getAccount(0).getBalance());
+            }
+        } else {
+            System.out.println(ANSI_RED + "Your bank has no customers!" + ANSI_RESET);
+        }
+    }
+
+    private void printCustomerDetails(String line) {
+        try {
+            int custNo = 0;
+            if (line.length() > 8) {
+                String strNum = line.split(" ")[1];
+                if (strNum != null) {
+                    custNo = Integer.parseInt(strNum);
+                }
+            }
+            Customer cust = Bank.getCustomer(custNo);
+            String accType = cust.getAccount(0) instanceof CheckingAccount ? "Checking" : "Savings";
+
+            AttributedStringBuilder a = new AttributedStringBuilder()
+                    .append("\nThis is detailed information about customer #")
+                    .append(Integer.toString(custNo), AttributedStyle.BOLD.foreground(AttributedStyle.RED))
+                    .append("!");
+
+            System.out.println(a.toAnsi());
+
+            System.out.println("\nLast name\tFirst Name\tAccount Type\tBalance");
+            System.out.println("-------------------------------------------------------");
+            System.out.println(cust.getLastName() + "\t\t" + cust.getFirstName() + "\t\t" + accType + "\t$" + cust.getAccount(0).getBalance());
+        } catch (Exception e) {
+            System.out
+                    .println(ANSI_RED + "ERROR! Wrong customer number!" + ANSI_RESET);
+        }
+    }
+
+    private void generateReport() {
+        CustomerReport report = new CustomerReport();
+        report.generateReport();
     }
 
     private String readLine(LineReader reader, String promtMessage) {
@@ -141,12 +154,10 @@ public class CLIdemo {
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
 
-        Bank.addCustomer("John", "Doe");
-        Bank.addCustomer("Fox", "Mulder");
-        Bank.getCustomer(0).addAccount(new CheckingAccount(2000));
-        Bank.getCustomer(1).addAccount(new SavingsAccount(1000, 3));
+        DataSource data = new DataSource("D:\\PPK\\OOP\\TUIdemo2\\data\\test.dat");
+        data.loadData();
 
         CLIdemo shell = new CLIdemo();
         shell.init();
